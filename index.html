@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atlas Galvão</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14283C">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Atlas Galvão">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<style>
+:root{--ink:#14283C;--paper:#EDF1F3;--card:#fff;--sea:#1E6B7B;--madder:#A93A45;--muted:#5B6B7A;--line:#D5DEE3;--sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{-webkit-text-size-adjust:100%;height:100%;margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 -apple-system,system-ui,sans-serif;overscroll-behavior:none}
+h1,h2,h3{font-family:Newsreader,Georgia,serif;margin:0;line-height:1.15}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input{font:inherit;font-size:16px}
+#app{position:fixed;inset:0;display:flex;flex-direction:column}
+.tab{display:none;flex:1;min-height:0;flex-direction:column}.tab.on{display:flex}
+.top{padding:calc(var(--sat) + 12px) 16px 10px;background:var(--ink);color:#fff}
+.top h1{font-size:28px}.top .sub{font-size:13px;color:#A9BBC8;margin-top:2px}
+.row{display:flex;gap:8px;align-items:center}
+.search{flex:1;width:100%;padding:11px 14px;border-radius:12px;border:0;background:#fff;color:var(--ink);margin-top:10px}
+.pills{display:flex;gap:8px;overflow-x:auto;padding:10px 16px;background:var(--ink);scrollbar-width:none}
+.pills::-webkit-scrollbar{display:none}
+.pill{flex:none;padding:6px 14px;border-radius:99px;border:1px solid #3B5670;color:#C9D7E2;font-size:14px}
+.pill.on{background:var(--paper);color:var(--ink);border-color:var(--paper)}
+.list{flex:1;overflow-y:auto;padding:12px 16px calc(var(--sab) + 80px)}
+.card{display:flex;gap:14px;align-items:center;width:100%;text-align:left;padding:12px 14px;margin-bottom:8px;background:var(--card);border-radius:14px;border:1px solid var(--line)}
+.card .fl{font-size:34px;line-height:1}
+.card b{display:block;font-family:Newsreader,Georgia,serif;font-size:19px;font-weight:700}
+.card span{font-size:13px;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);padding:40px 16px}
+#tabbar{display:flex;background:rgba(255,255,255,.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--line);padding-bottom:var(--sab)}
+#tabbar button{flex:1;padding:9px 0 7px;font-size:12px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:2px}
+#tabbar button.on{color:var(--madder);font-weight:600}
+#tabbar svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.7}
+#mapwrap{position:relative;flex:1;min-height:0;background:#D6E3EA;touch-action:none}
+#map{width:100%;height:100%;display:block}
+#map path{fill:#C3D0D7;stroke:#fff;stroke-width:.5;vector-effect:non-scaling-stroke}
+#map path.has{fill:#AFC3CD}#map path.sel{fill:var(--madder);stroke:var(--ink);stroke-width:1.5}
+.sug{list-style:none;margin:6px 0 0;padding:0;background:#fff;border-radius:12px;color:var(--ink);overflow:hidden}
+.sug li{padding:10px 14px;border-bottom:1px solid var(--line)}.sug li:last-child{border:0}
+#sheetbg{position:fixed;inset:0;background:rgba(10,20,30,.35);opacity:0;pointer-events:none;transition:.25s;z-index:20}
+#sheetbg.on{opacity:1;pointer-events:auto}
+#sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:#fff;border-radius:20px 20px 0 0;padding:10px 20px calc(var(--sab) + 20px);transform:translateY(105%);transition:transform .3s}
+#sheet.on{transform:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 14px}
+.btn{display:block;width:100%;padding:13px;border-radius:12px;background:var(--madder);color:#fff;font-weight:600;text-align:center;margin-top:14px}
+.btn.alt{background:var(--ink)}.btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line)}
+#detail{position:fixed;inset:0;z-index:30;background:var(--paper);overflow-y:auto;transform:translateX(100%);transition:transform .3s}
+#detail.on{transform:none}
+.dbar{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;padding:calc(var(--sat) + 8px) 12px 8px;background:rgba(237,241,243,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.dbar button{color:var(--sea);font-weight:600;padding:6px 8px}
+.dbody{padding:0 18px calc(var(--sab) + 40px);max-width:640px;margin:0 auto}
+.flag{width:100%;max-height:190px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:#fff}
+.dbody h1{font-size:34px;margin:16px 0 2px}.off{color:var(--muted);font-size:14px}
+.facts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.facts div{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px}
+.facts small{display:block;color:var(--muted);font-size:12px}
+.badge{display:inline-block;font-size:12px;color:var(--sea);border:1px solid var(--sea);border-radius:99px;padding:2px 10px;margin-bottom:12px}
+.topic{background:#fff;border-left:4px solid var(--madder);border-radius:4px 12px 12px 4px;padding:12px 14px;margin-bottom:12px}
+.topic h3{font-size:20px;margin-bottom:4px}.topic p{margin:0;max-width:62ch}
+.msg{padding:10px 14px;border-radius:16px;margin:8px 0;max-width:88%;white-space:pre-wrap}
+.msg.u{background:var(--ink);color:#fff;margin-left:auto;border-bottom-right-radius:4px}
+.msg.m{background:#fff;border:1px solid var(--line);border-bottom-left-radius:4px}
+.ask{display:flex;gap:8px;margin-top:10px}.ask input{flex:1;padding:12px 14px;border-radius:12px;border:1px solid var(--line)}
+.ask button{padding:0 18px;border-radius:12px;background:var(--sea);color:#fff;font-weight:600}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-top:6px}.chips button{flex:none;padding:7px 12px;border-radius:99px;border:1px solid var(--sea);color:var(--sea);font-size:14px;background:#fff}
+.seg{display:flex;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px;margin-bottom:12px}.seg button{flex:1;padding:7px;border-radius:8px;font-size:15px;color:var(--muted)}.seg button.on{background:var(--ink);color:#fff}
+.blk{position:relative}.blk.topic{padding-right:44px}.blk.para{padding:0 40px 0 0;margin-bottom:16px;font-family:Newsreader,Georgia,serif;font-size:18px;line-height:1.65}.blk.para p{margin:0}
+.bmk{position:absolute;right:6px;top:8px;font-size:20px;color:#B3C0C8;padding:4px 6px}.mk .bmk{color:var(--madder)}
+.blk.mk::before{content:'Parei aqui';display:block;font:600 12px -apple-system,system-ui,sans-serif;color:var(--madder);margin-bottom:2px}.blk.para.mk{border-left:4px solid var(--madder);padding-left:12px}
+.note{color:var(--muted);font-size:14px}.err{color:var(--madder);font-size:14px}
+.sk{height:64px;border-radius:12px;background:linear-gradient(90deg,#E3EAEE,#F3F6F7,#E3EAEE);background-size:200% 100%;animation:sh 1.4s infinite;margin-bottom:12px}
+@keyframes sh{to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){.sk{animation:none}#sheet,#detail{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- ABA 1: EXPLORAR -->
+  <section class="tab on" id="t-explore">
+    <div class="top">
+      <div class="row"><div style="flex:1"><h1>Atlas Galvão</h1><div class="sub">Dois minutos por país</div></div><button id="gear" aria-label="Configurações" style="color:#A9BBC8;font-size:22px">⚙︎</button></div>
+      <input class="search" id="q" type="search" placeholder="Buscar país" autocomplete="off">
+    </div>
+    <div class="pills" id="pills"></div>
+    <div class="list" id="list"></div>
+  </section>
+  <!-- ABA 2: MAPA -->
+  <section class="tab" id="t-map">
+    <div class="top" style="padding-bottom:12px">
+      <input class="search" id="mq" type="search" placeholder="Buscar no mapa" autocomplete="off" style="margin-top:0">
+      <ul class="sug" id="sug" hidden></ul>
+    </div>
+    <div id="mapwrap"><svg id="map"></svg></div>
+  </section>
+  <nav id="tabbar">
+    <button class="on" data-tab="explore"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5zM8 10h8M8 14h8"/></svg>Explorar</button>
+    <button data-tab="map"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c3 3 3 14 0 17M12 3.5c-3 3-3 14 0 17"/></svg>Mapa-múndi</button>
+  </nav>
+</div>
+
+<div id="sheetbg"></div>
+<div id="sheet"></div>
+<div id="detail"></div>
+
+<script>
+/* ============ CONFIG ============
+   A chave do Gemini NÃO fica no código: é digitada em ⚙︎ Configurações
+   e salva só no localStorage deste aparelho. */
+const MODEL='gemini-2.5-flash';
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm=s=>s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch{return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
+const readSet=()=>new Set(store.get('hm:read')||[]);
+function toggleRead(id){const r=readSet();r.has(id)?r.delete(id):r.add(id);store.set('hm:read',[...r]);return r.has(id)}
+function updateCount(){if(countries.length)$('.top .sub').textContent=`${readSet().size} de ${countries.length} países lidos`}
+const CONT=['Todos','Não lidos','Lidos','Américas','Europa','Ásia','África','Oceania'];
+const REG={Americas:'Américas',Europe:'Europa',Asia:'Ásia',Africa:'África',Oceania:'Oceania',Antarctic:'Antártida'};
+let countries=[],byNum=new Map(),cont='Todos';
+
+const ptName=c=>c.translations?.por?.common||c.name.common;
+const ptOff=c=>c.translations?.por?.official||c.name.official;
+const region=c=>REG[c.region]||c.region;
+
+/* ---------- Países (REST Countries, com cache offline) ---------- */
+async function loadCountries(){
+  const cached=store.get('hm:countries');
+  if(cached){setCountries(cached)}
+  try{
+    const r=await fetch('https://restcountries.com/v3.1/all?fields=name,translations,cca3,ccn3,capital,region,population,flags,flag');
+    if(!r.ok)throw 0;
+    const d=await r.json();store.set('hm:countries',d);setCountries(d);
+  }catch{if(!cached)$('#list').innerHTML='<div class="empty">Não foi possível carregar os países. Verifique a conexão e reabra o app.</div>'}
+}
+function setCountries(d){
+  countries=d.sort((a,b)=>ptName(a).localeCompare(ptName(b),'pt'));
+  byNum=new Map(countries.map(c=>[c.ccn3,c]));
+  renderList();paintMap();
+}
+
+/* ---------- Aba Explorar ---------- */
+$('#pills').innerHTML=CONT.map(c=>`<button class="pill${c==='Todos'?' on':''}" data-c="${c}">${c}</button>`).join('');
+$('#pills').insertAdjacentHTML('afterbegin','<button class="pill" id="rnd" style="border-color:var(--madder);color:#fff;background:var(--madder)">Surpreenda-me</button>');
+$('#pills').onclick=e=>{const b=e.target.closest('.pill');if(!b)return;
+  if(b.id==='rnd'){const pool=countries.filter(c=>!readSet().has(c.cca3));const l=pool.length?pool:countries;if(l.length)openDetail(l[Math.floor(Math.random()*l.length)]);return}cont=b.dataset.c;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.toggle('on',p===b));renderList()};
+$('#q').oninput=renderList;
+function renderList(){
+  const q=norm($('#q').value.trim()),rs=readSet();updateCount();
+  const rows=countries.filter(c=>(cont==='Todos'||(cont==='Não lidos'?!rs.has(c.cca3):cont==='Lidos'?rs.has(c.cca3):region(c)===cont))&&(!q||norm(ptName(c)).includes(q)||norm(c.name.common).includes(q)));
+  $('#list').innerHTML=rows.length?rows.map(c=>`<button class="card" data-id="${c.cca3}"><span class="fl">${c.flag||''}</span><div><b>${esc(ptName(c))}</b><span>${region(c)} · ${esc((c.capital||['—'])[0])}${rs.has(c.cca3)?' · ✓ lida':''}</span></div></button>`).join(''):'<div class="empty">Nenhum país encontrado.</div>';
+}
+$('#list').onclick=e=>{const b=e.target.closest('.card');if(b)openDetail(countries.find(c=>c.cca3===b.dataset.id))};
+
+/* ---------- Abas ---------- */
+document.querySelectorAll('#tabbar button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#tabbar button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on',t.id==='t-'+b.dataset.tab));
+  if(b.dataset.tab==='map')initMap();
+});
+
+/* ---------- Mapa (D3-geo + TopoJSON, zoom por pinça/arraste) ---------- */
+let svg,g,path,zoom,feats=[],W,H,mapReady=false;
+async function initMap(){
+  if(mapReady)return;mapReady=true;
+  const wrap=$('#mapwrap');W=wrap.clientWidth;H=wrap.clientHeight;
+  svg=d3.select('#map').attr('viewBox',[0,0,W,H]);
+  try{
+    const topo=await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json');
+    feats=topojson.feature(topo,topo.objects.countries).features;
+  }catch{mapReady=false;wrap.insertAdjacentHTML('beforeend','<div class="empty" style="position:absolute;inset:40% 0 auto">Mapa indisponível offline.</div>');return}
+  const proj=d3.geoNaturalEarth1().fitSize([W,H],{type:'Sphere'});
+  path=d3.geoPath(proj);
+  g=svg.append('g');
+  g.selectAll('path').data(feats).join('path').attr('d',path)
+    .on('click',(e,f)=>{const c=byNum.get(String(f.id).padStart(3,'0'));if(c)pick(c,false)});
+  zoom=d3.zoom().scaleExtent([1,40]).translateExtent([[0,0],[W,H]]).on('zoom',e=>g.attr('transform',e.transform));
+  svg.call(zoom);paintMap();
+}
+function paintMap(){if(g)g.selectAll('path').classed('has',f=>byNum.has(String(f.id).padStart(3,'0')))}
+function pick(c,zoomIn){
+  if(g){g.selectAll('path').classed('sel',f=>String(f.id).padStart(3,'0')===c.ccn3);
+    if(zoomIn){const f=feats.find(f=>String(f.id).padStart(3,'0')===c.ccn3);
+      if(f){const[[x0,y0],[x1,y1]]=path.bounds(f);const k=Math.min(12,.7/Math.max((x1-x0)/W,(y1-y0)/H));
+        svg.transition().duration(600).call(zoom.transform,d3.zoomIdentity.translate(W/2,H/2).scale(k).translate(-(x0+x1)/2,-(y0+y1)/2))}}}
+  openSheet(c);
+}
+$('#mq').oninput=()=>{
+  const q=norm($('#mq').value.trim()),u=$('#sug');
+  const r=q?countries.filter(c=>norm(ptName(c)).includes(q)).slice(0,5):[];
+  u.hidden=!r.length;u.innerHTML=r.map(c=>`<li data-id="${c.cca3}">${c.flag||''} ${esc(ptName(c))}</li>`).join('');
+};
+$('#sug').onclick=e=>{const li=e.target.closest('li');if(!li)return;
+  const c=countries.find(c=>c.cca3===li.dataset.id);$('#sug').hidden=true;$('#mq').value=ptName(c);$('#mq').blur();pick(c,true)};
+
+/* ---------- Bottom sheet ---------- */
+function openSheet(c){
+  $('#sheet').innerHTML=`<div class="grab"></div><div class="row"><span style="font-size:44px">${c.flag||''}</span><div><h2 style="font-size:26px">${esc(ptName(c))}</h2><span class="note">${region(c)} · ${esc((c.capital||['—'])[0])}</span></div></div>
+  <p class="note" style="margin:12px 0 0">${c.population.toLocaleString('pt-BR')} habitantes</p><button class="btn" id="full">Ler história completa</button>`;
+  $('#sheet').classList.add('on');$('#sheetbg').classList.add('on');
+  $('#full').onclick=()=>{closeSheet();openDetail(c)};
+}
+function closeSheet(){$('#sheet').classList.remove('on');$('#sheetbg').classList.remove('on')}
+$('#sheetbg').onclick=closeSheet;
+
+/* ---------- Fonte: Wikipédia pt (resumo + seção "História") ---------- */
+async function wikiSource(c){
+  const enc=encodeURIComponent(ptName(c).replace(/ /g,'_'));
+  const [s,f]=await Promise.all([
+    fetch(`https://pt.wikipedia.org/api/rest_v1/page/summary/${enc}`).then(r=>r.ok?r.json():null).catch(()=>null),
+    fetch(`https://pt.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&exsectionformat=wiki&redirects=1&format=json&origin=*&titles=${enc}`).then(r=>r.json()).catch(()=>null)]);
+  const full=(f&&Object.values(f.query.pages)[0]?.extract)||'';
+  const m=full.match(/\n== História ==\n([\s\S]*?)(?=\n== [^=])/);
+  const hist=m?m[1].replace(/\n=+ .*? =+\n/g,'\n').trim().slice(0,30000):'';
+  const summary=s?.extract||'';
+  if(!summary&&!hist)throw new Error('Não encontrei o artigo na Wikipédia.');
+  return{summary,hist,url:s?.content_urls?.mobile?.page||''};
+}
+
+/* ---------- Gemini ---------- */
+async function gemini(system,contents,json){
+  const key=store.get('hm:key');if(!key)throw new Error('NOKEY');
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,{method:'POST',
+    headers:{'Content-Type':'application/json','x-goog-api-key':key},
+    body:JSON.stringify({systemInstruction:{parts:[{text:system}]},contents,
+      generationConfig:{temperature:.3,thinkingConfig:{thinkingBudget:0},...(json?{responseMimeType:'application/json'}:{})}})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error?.message||'Erro '+r.status);
+  return(d.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('');
+}
+const SYS_TOPICS='Você é um historiador didático e envolvente. Com base ESTRITAMENTE no texto oficial fornecido abaixo, crie 3 tópicos curtos e fascinantes sobre a história e curiosidades deste país para uma leitura rápida de 2 minutos. Não invente fatos fora do contexto. Responda SOMENTE com JSON: um array de 3 objetos {"titulo": string, "texto": string com até 60 palavras}.';
+const sysTutor=src=>`Você é um tutor de história. Responda em português, de forma objetiva, clara e historicamente precisa. Use ESTRITAMENTE o texto da fonte confiável abaixo como base. Se a pergunta ultrapassar o texto, diga o que a fonte não cobre e só complemente com fatos históricos amplamente consolidados, sinalizando isso. Nunca invente datas, nomes ou eventos.\n\nTEXTO DA FONTE (Wikipédia):\n${src}`;
+
+/* ---------- Detalhe do país ---------- */
+let chat={src:'',msgs:[]};
+async function openDetail(c){
+  speechSynthesis?.cancel();
+  const d=$('#detail');d.scrollTop=0;
+  d.innerHTML=`<div class="dbar"><button id="back">‹ Voltar</button><button id="rd"></button></div><div class="dbody">
+  <img class="flag" src="${esc(c.flags?.svg||c.flags?.png)}" alt="Bandeira: ${esc(ptName(c))}">
+  <h1>${esc(ptName(c))}</h1><div class="off">${esc(ptOff(c))}</div>
+  <div class="facts"><div><small>Capital</small>${esc((c.capital||['—']).join(', '))}</div><div><small>Região</small>${region(c)}</div><div><small>População</small>${c.population.toLocaleString('pt-BR')}</div><div><small>Código</small>${c.cca3}</div></div>
+  <div id="story"><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+  <h2 style="font-size:24px;margin:22px 0 4px">Tire suas dúvidas</h2><p class="note" style="margin:0 0 6px">Pergunte sobre ${esc(ptName(c))}. Dica: use o microfone do teclado do iPhone.</p>
+  <div id="chat"></div><div class="chips"><button>Por que o nome mudou?</button><button>Qual a relação com o Brasil?</button><button>Qual o fato mais surpreendente?</button></div><div class="ask"><input id="ci" placeholder="Ex.: por que o nome mudou?" enterkeyhint="send"><button id="cs">Enviar</button></div></div>`;
+  d.classList.add('on');
+  history.pushState({d:1},'');
+  const rd=$('#rd'),paint=()=>{const on=readSet().has(c.cca3);rd.textContent=on?'✓ Lida':'Marcar como lida';rd.style.color=on?'var(--madder)':'var(--sea)'};
+  paint();rd.onclick=()=>{toggleRead(c.cca3);paint();updateCount()};
+  $('#back').onclick=()=>history.back();
+  chat={src:'',msgs:[]};
+  loadStory(c);
+  const send=()=>{const v=$('#ci').value.trim();if(v){$('#ci').value='';ask(v,c)}};
+  $('.chips').onclick=e=>{if(e.target.tagName==='BUTTON')ask(e.target.textContent,c)};
+  $('#cs').onclick=send;$('#ci').onkeydown=e=>{if(e.key==='Enter')send()};
+}
+async function loadStory(c){
+  const box=$('#story'),ck='hm:c:'+c.cca3;
+  let data=store.get(ck);
+  try{
+    if(!data||!data.full){
+      let src=null;
+      try{src=await wikiSource(c)}catch(e){if(!data?.topics)throw e}
+      if(src){
+        const text=(src.summary+'\n\n'+src.hist.slice(0,7000)).trim();
+        let topics=data?.topics;
+        if(!topics){
+          const raw=await gemini(SYS_TOPICS+'\n\nTEXTO OFICIAL:\n'+text,[{role:'user',parts:[{text:'Gere os 3 tópicos.'}]}],true);
+          try{topics=JSON.parse(raw.replace(/```json|```/g,'').trim())}catch{throw new Error('A IA devolveu um formato inesperado. Tente de novo.')}
+        }
+        data={topics,text,full:(src.hist||src.summary).slice(0,30000),url:src.url,ts:Date.now()};store.set(ck,data);
+      }
+    }
+    chat.src=data.text;
+    show(c,data,box);
+  }catch(e){
+    box.innerHTML=e.message==='NOKEY'
+      ?`<p class="note">Para gerar a síntese, cadastre sua chave do Gemini.</p><button class="btn" id="cfg">Configurar chave</button>`
+      :`<p class="err">${esc(e.message)}</p><button class="btn ghost" id="retry">Tentar de novo</button>`;
+    if($('#cfg'))$('#cfg').onclick=openSettings;
+    if($('#retry'))$('#retry').onclick=()=>{box.innerHTML='<div class="sk"></div><div class="sk"></div>';loadStory(c)};
+  }
+}
+
+/* Leitura: modo Resumo (3 tópicos) ou História completa (texto da Wikipédia) + marcador "parei aqui" */
+function show(c,data,box){
+  let mode=store.get('hm:mode')||'s';if(mode==='f'&&!data.full)mode='s';
+  const paras=(data.full||'').split(/\n+/).map(x=>x.trim()).filter(Boolean);
+  const blocks=mode==='s'?data.topics.map(t=>({h:t.titulo,p:t.texto})):paras.map(p=>({p}));
+  const bk=`hm:bm:${c.cca3}:${mode}`;let bm=store.get(bk);
+  box.innerHTML=`<span class="badge">Fonte verificada: Wikipédia</span>
+  ${data.full?`<div class="seg"><button data-m="s" class="${mode==='s'?'on':''}">Resumo</button><button data-m="f" class="${mode==='f'?'on':''}">História completa</button></div>`:''}
+  <button class="btn ghost" id="resume" style="margin:0 0 12px" hidden>Continuar de onde parei</button>
+  <div id="cont">${blocks.map((b,i)=>`<div class="blk ${mode==='s'?'topic':'para'}" data-i="${i}">${b.h?`<h3>${esc(b.h)}</h3>`:''}<p>${esc(b.p)}</p><button class="bmk" aria-label="Marcar onde parei">⚑</button></div>`).join('')}</div>
+  <button class="btn alt" id="listen">▶ Ouvir História</button>`+(data.url?`<a class="note" href="${esc(data.url)}" target="_blank" rel="noopener" style="display:block;margin-top:10px">Ver artigo na Wikipédia</a>`:'');
+  const els=[...box.querySelectorAll('.blk')];
+  const refresh=()=>{els.forEach((el,i)=>el.classList.toggle('mk',i===bm));$('#resume').hidden=bm==null||!els[bm]};
+  refresh();
+  $('#resume').onclick=()=>els[bm]?.scrollIntoView({behavior:'smooth',block:'center'});
+  $('#cont').onclick=e=>{const b=e.target.closest('.bmk');if(!b)return;const i=+b.parentNode.dataset.i;
+    if(bm===i){bm=null;localStorage.removeItem(bk)}else{bm=i;store.set(bk,i)}refresh()};
+  box.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{speechSynthesis?.cancel();store.set('hm:mode',b.dataset.m);show(c,data,box)});
+  $('#listen').onclick=()=>{ // só por toque (regra de áudio do Safari iOS); começa do marcador, se houver
+    const s=window.speechSynthesis,b=$('#listen');
+    if(s.speaking||s.pending){s.cancel();b.textContent='▶ Ouvir História';return}
+    const voice=s.getVoices().find(v=>v.lang.replace('_','-')==='pt-BR');
+    const list=blocks.slice(bm??0).map(x=>(x.h?x.h+'. ':'')+x.p);
+    list.forEach((t,k)=>{const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';if(voice)u.voice=voice;
+      if(k===list.length-1)u.onend=u.onerror=()=>b.textContent='▶ Ouvir História';s.speak(u)});
+    b.textContent='■ Parar';
+  };
+}
+
+window.addEventListener('popstate',()=>{speechSynthesis?.cancel();$('#detail').classList.remove('on');renderList()});
+
+/* ---------- Tutor (histórico mantém o texto da fonte no contexto) ---------- */
+async function ask(q,c){
+  const log=$('#chat');
+  log.insertAdjacentHTML('beforeend',`<div class="msg u">${esc(q)}</div>`);
+  const wait=document.createElement('div');wait.className='msg m note';wait.textContent='Consultando a fonte…';log.append(wait);
+  if(!chat.src){ // fonte ainda não carregada: busca só para o chat
+    try{const s=await wikiSource(c);chat.src=(s.summary+'\n\n'+s.hist).trim()}catch(e){wait.className='msg m err';wait.textContent=e.message;return}
+  }
+  chat.msgs.push({role:'user',parts:[{text:q}]});
+  try{
+    const a=await gemini(sysTutor(chat.src),chat.msgs);
+    chat.msgs.push({role:'model',parts:[{text:a}]});
+    wait.className='msg m';wait.textContent=a;
+  }catch(e){
+    chat.msgs.pop();wait.className='msg m err';
+    wait.textContent=e.message==='NOKEY'?'Cadastre sua chave do Gemini em ⚙︎ Configurações.':e.message;
+  }
+}
+
+/* ---------- Configurações ---------- */
+function openSettings(){
+  const has=!!store.get('hm:key');
+  $('#sheet').innerHTML=`<div class="grab"></div><h2 style="font-size:24px">Configurações</h2>
+  <p class="note">Chave da API do Google Gemini (gratuita em aistudio.google.com). Fica salva apenas neste aparelho.</p>
+  <input class="search" id="kin" type="password" placeholder="${has?'Chave salva — digite para trocar':'Cole sua chave'}" style="border:1px solid var(--line);margin-top:0" autocomplete="off">
+  <button class="btn" id="ksave">Salvar chave</button><button class="btn ghost" id="kclr">Limpar histórias salvas</button>`;
+  $('#sheet').classList.add('on');$('#sheetbg').classList.add('on');
+  $('#ksave').onclick=()=>{const v=$('#kin').value.trim();if(v){store.set('hm:key',v);closeSheet()}};
+  $('#kclr').onclick=()=>{Object.keys(localStorage).filter(k=>k.startsWith('hm:c:')).forEach(k=>localStorage.removeItem(k));closeSheet()};
+}
+$('#gear').onclick=openSettings;
+
+loadCountries();
+if('serviceWorker'in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
