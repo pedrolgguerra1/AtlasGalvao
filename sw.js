@@ -1,5 +1,5 @@
 // Service worker simples: rede primeiro, cache como reserva (uso offline do app e das bibliotecas).
-const C='hm-v4';
+const C='hm-v1';
 self.addEventListener('install',e=>{e.waitUntil(caches.open(C).then(c=>c.addAll(['./','index.html','manifest.json','icon-192.png'])));self.skipWaiting()});
 self.addEventListener('activate',e=>e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch',e=>{
